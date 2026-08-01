@@ -6,20 +6,21 @@
 
 ## Master Rules
 
-- **MR-1** — Trade only in the direction of the 1H trend. If price is below the 1H EMA 200, long setups are ignored entirely.
-- **MR-2** — No entry without a completed candlestick signal from the library below. A signal forming on an unclosed candle does not count.
-- **MR-3** — Volume on the signal candle must exceed the 20-period volume average. Signals on below-average volume are ignored.
-- **MR-4** — Every long or short must state entry, stop loss and take profit. A setup without all three is not a trade.
-- **MR-5** — Stop loss goes beyond the structural swing that produced the signal, never at a round number and never inside the Bollinger band.
+- **MR-1** — Trade only in the direction of the 200 SMA on the 1h. While price is below it, long setups on every lower timeframe are ignored.
+- **MR-2** — On the 1-minute chart only the 9 EMA and the 40 SMA apply. A 1m read that leans on the 20, 100 or 200 SMA is not a valid 1m read.
+- **MR-3** — No entry without a completed candlestick signal from the library below. A signal forming on an unclosed candle does not count.
+- **MR-4** — Volume on the signal candle must exceed the 20-period volume average. Signals on below-average volume are ignored.
+- **MR-5** — Every long or short must state entry, stop loss and take profit. A setup without all three is not a trade.
 - **MR-6** — When price sits between the 0.5 and 0.618 Fibonacci retracement of the last impulse, a counter-trend signal is void. Wait for the zone to resolve.
 
 ## Moving Averages
 
-| Timeframe | Fast | Slow |
-| --- | --- | --- |
-| 5m | EMA 9 | EMA 21 |
-| 1h | EMA 50 | EMA 200 |
-| 1D | SMA 50 | SMA 200 |
+Only these apply, and only on the timeframe they are listed under.
+
+- 1m — 9 EMA, 40 SMA
+- 5m — 9 EMA, 20 SMA, 40 SMA, 100 SMA, 200 SMA
+- 15m — 9 EMA, 20 SMA, 40 SMA, 100 SMA, 200 SMA
+- 1h — 9 EMA, 20 SMA, 40 SMA, 100 SMA, 200 SMA
 
 ## Indicators
 

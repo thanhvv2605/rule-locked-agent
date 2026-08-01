@@ -28,7 +28,7 @@ def build_system_prompt(fw: Framework) -> str:
     Stating it once is how a rule gets silently overridden.
     """
     rules = "\n".join(f"{rid} — {text}" for rid, text in fw.rules.items())
-    mas = "\n".join(f"{tf}: fast {fast}, slow {slow}" for tf, (fast, slow) in fw.moving_averages.items())
+    mas = "\n".join(f"{tf}: {', '.join(tokens)}" for tf, tokens in fw.moving_averages.items())
     candles = "\n".join(f"{name} — {desc}" for name, desc in fw.candlesticks.items())
 
     return f"""You analyse price charts using EXACTLY ONE framework: the trading journal below.
@@ -41,7 +41,7 @@ conversation. If the journal does not cover something, the answer is no_trade.
 === MASTER RULES ===
 {rules}
 
-=== MOVING AVERAGES (the only ones configured) ===
+=== MOVING AVERAGES (the only ones configured, per timeframe) ===
 {mas}
 
 === INDICATORS (the only ones configured) ===
@@ -55,8 +55,8 @@ conversation. If the journal does not cover something, the answer is no_trade.
    rule_citations. A rule ID that is not listed above is a fabrication.
 2. Never mention an indicator or moving average that is not configured above.
 3. Never hedge, never disclaim, never ask the trader a question. Decide.
-4. A long or short requires entry, stop_loss and take_profit (MR-4) and a
-   candlestick_signal named exactly as in the library (MR-2).
+4. A long or short requires entry, stop_loss and take_profit (MR-5) and a
+   candlestick_signal named exactly as in the library (MR-3).
 5. When the framework does not produce a setup, verdict is no_trade. That is a
    correct answer, not a failure.
 """
@@ -74,7 +74,7 @@ REMINDER = """Before you answer, re-read this:
 class Transport(Protocol):
     """Returns the model's raw JSON text for one attempt."""
 
-    def generate(self, system: str, messages: list[dict]) -> str: ...
+    def generate(self, system: str, messages: list[dict], schema: dict) -> str: ...
 
 
 class AnthropicTransport:
@@ -110,7 +110,7 @@ class AnthropicTransport:
             *rest,
         ]
 
-    def generate(self, system: str, messages: list[dict]) -> str:
+    def generate(self, system: str, messages: list[dict], schema: dict) -> str:
         messages = self._with_chart(messages)
         response = self.client.messages.create(
             model=MODEL,
@@ -118,7 +118,7 @@ class AnthropicTransport:
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             output_config={
                 "effort": "high",
-                "format": {"type": "json_schema", "schema": contract.json_schema()},
+                "format": {"type": "json_schema", "schema": schema},
             },
             messages=messages,
         )
@@ -135,7 +135,7 @@ class ScriptedTransport:
         self.script = list(script)
         self.calls = 0
 
-    def generate(self, system: str, messages: list[dict]) -> str:
+    def generate(self, system: str, messages: list[dict], schema: dict) -> str:
         payload = self.script[min(self.calls, len(self.script) - 1)]
         self.calls += 1
         return payload
@@ -163,10 +163,11 @@ def analyse(
 ) -> Analysis:
     """Ask, validate, and refuse anything that deviates — up to max_attempts."""
     system = build_system_prompt(fw)
+    schema = contract.json_schema(fw)
     messages: list[dict] = [{"role": "user", "content": f"{request}\n\n{REMINDER}"}]
 
     for n in range(1, max_attempts + 1):
-        raw = transport.generate(system, messages)
+        raw = transport.generate(system, messages, schema)
 
         try:
             analysis = Analysis.model_validate_json(raw)

@@ -30,7 +30,25 @@ HEDGING_PHRASES = [
     "as an ai", "generally speaking", "typically", "may or may not",
 ]
 
-MA_MENTION_RE = re.compile(r"\b(EMA|SMA)\s*\(?\s*(\d+)\s*\)?", re.IGNORECASE)
+# Matches both orders a trader might write: "9 EMA" and "EMA 9" / "EMA(9)".
+MA_MENTION_RE = re.compile(
+    r"\b(?:(\d+)\s*(EMA|SMA)|(EMA|SMA)\s*\(?\s*(\d+)\s*\)?)", re.IGNORECASE
+)
+
+
+def _ma_order(tokens) -> list[str]:
+    """EMA before SMA, then by period — "9 EMA, 20 SMA, 40 SMA" reads naturally,
+    where a plain sort would give "100 SMA, 20 SMA, 200 SMA"."""
+    return sorted(tokens, key=lambda t: (t.split()[1], int(t.split()[0])))
+
+
+def _ma_tokens_in(text: str) -> set[str]:
+    """Normalise every moving-average mention to the journal's "9 EMA" form."""
+    found = set()
+    for a_period, a_kind, b_kind, b_period in MA_MENTION_RE.findall(text):
+        period, kind = (a_period, a_kind) if a_period else (b_period, b_kind)
+        found.add(f"{period} {kind.upper()}")
+    return found
 
 
 class Analysis(BaseModel):
@@ -39,7 +57,10 @@ class Analysis(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     symbol: str
-    timeframe: Literal["5m", "15m", "1h", "4h", "1D"]
+    # Not a Literal: the valid timeframes come from the journal, not from this
+    # file. json_schema() injects them as an enum and check() enforces them, so
+    # adding a timeframe to the journal needs no code change.
+    timeframe: str
     verdict: Literal["long", "short", "no_trade"]
     confidence: Literal["low", "medium", "high"]
     entry: Optional[float]
@@ -60,14 +81,25 @@ class Violation(Exception):
         self.detail = detail
 
 
-def json_schema() -> dict:
-    return Analysis.model_json_schema()
+def json_schema(fw: Framework) -> dict:
+    """The strict schema sent to the API, with the journal's timeframes as the
+    enum — so the model cannot even name a timeframe the trader has not set up."""
+    schema = Analysis.model_json_schema()
+    schema["properties"]["timeframe"]["enum"] = list(fw.moving_averages)
+    return schema
 
 
 def check(analysis: Analysis, fw: Framework) -> list[Violation]:
     """Every way a schema-valid response can still be wrong."""
     out: list[Violation] = []
     text = f"{analysis.reasoning} {' '.join(analysis.evidence)}"
+
+    # 0. The timeframe has to be one the journal sets up.
+    if analysis.timeframe not in fw.moving_averages:
+        out.append(Violation(
+            "timeframe must be one the journal configures",
+            f"got {analysis.timeframe!r}; the journal covers {list(fw.moving_averages)}",
+        ))
 
     # 1. The citation gate. This is the load-bearing one.
     if not analysis.rule_citations:
@@ -89,12 +121,11 @@ def check(analysis: Analysis, fw: Framework) -> list[Violation]:
                 "only indicators configured in the journal may be used",
                 f"mentioned {name!r}, which the journal does not configure",
             ))
-    for kind, period in MA_MENTION_RE.findall(text):
-        token = f"{kind.upper()} {period}"
+    for token in sorted(_ma_tokens_in(text)):
         if token not in fw.ma_tokens:
             out.append(Violation(
                 "only moving averages configured in the journal may be used",
-                f"mentioned {token!r}; the journal configures {sorted(fw.ma_tokens)}",
+                f"mentioned {token!r}; the journal configures {_ma_order(fw.ma_tokens)}",
             ))
 
     # 3. No hedging, no questions back to the trader.
@@ -111,7 +142,7 @@ def check(analysis: Analysis, fw: Framework) -> list[Violation]:
             "reasoning contains a question mark; decide from the chart and the rules",
         ))
 
-    # 4. MR-4: a directional call is not a trade without all three levels.
+    # 4. MR-5: a directional call is not a trade without all three levels.
     if analysis.verdict in ("long", "short"):
         missing = [
             f for f in ("entry", "stop_loss", "take_profit")
@@ -119,16 +150,16 @@ def check(analysis: Analysis, fw: Framework) -> list[Violation]:
         ]
         if missing:
             out.append(Violation(
-                "MR-4 requires entry, stop loss and take profit on every trade",
+                "MR-5 requires entry, stop loss and take profit on every trade",
                 f"verdict is {analysis.verdict!r} but {', '.join(missing)} is null",
             ))
 
-    # 5. MR-2: a trade needs a signal from the library, by its exact name.
+    # 5. MR-3: a trade needs a signal from the library, by its exact name.
     if analysis.verdict in ("long", "short"):
         sig = analysis.candlestick_signal
         if sig is None:
             out.append(Violation(
-                "MR-2 requires a completed candlestick signal from the library",
+                "MR-3 requires a completed candlestick signal from the library",
                 "candlestick_signal is null on a directional call",
             ))
         elif sig not in fw.candlesticks:

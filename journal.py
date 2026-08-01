@@ -11,9 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 RULE_RE = re.compile(r"^-\s+\*\*(MR-\d+)\*\*\s+[—-]\s+(.+)$")
-MA_ROW_RE = re.compile(
-    r"^\|\s*([0-9A-Za-z]+)\s*\|\s*(EMA|SMA)\s+(\d+)\s*\|\s*(EMA|SMA)\s+(\d+)\s*\|"
-)
+MA_LINE_RE = re.compile(r"^-\s+([0-9A-Za-z]+)\s+[—-]\s+(.+)$")
+MA_TOKEN_RE = re.compile(r"(\d+)\s*(EMA|SMA)", re.IGNORECASE)
 INDICATOR_RE = re.compile(r"^-\s+([A-Z][A-Z0-9-]*)\(")
 CANDLE_RE = re.compile(r"^-\s+([a-z_]+)\s+[—-]\s+(.+)$")
 
@@ -24,14 +23,14 @@ class Framework:
     sha256: str
     raw: str
     rules: dict[str, str] = field(default_factory=dict)
-    moving_averages: dict[str, tuple[str, str]] = field(default_factory=dict)
+    moving_averages: dict[str, list[str]] = field(default_factory=dict)
     indicators: list[str] = field(default_factory=list)
     candlesticks: dict[str, str] = field(default_factory=dict)
 
     @property
     def ma_tokens(self) -> set[str]:
-        """Every moving average the journal actually configures, e.g. {"EMA 9", ...}."""
-        return {token for pair in self.moving_averages.values() for token in pair}
+        """Every moving average the journal configures, e.g. {"9 EMA", "40 SMA", ...}."""
+        return {token for tokens in self.moving_averages.values() for token in tokens}
 
     def summary(self) -> str:
         """What was parsed out of the file, for the startup banner."""
@@ -48,7 +47,7 @@ def load(path: str | Path) -> Framework:
     raw = path.read_text(encoding="utf-8")
 
     rules: dict[str, str] = {}
-    moving_averages: dict[str, tuple[str, str]] = {}
+    moving_averages: dict[str, list[str]] = {}
     indicators: list[str] = []
     candlesticks: dict[str, str] = {}
 
@@ -63,9 +62,14 @@ def load(path: str | Path) -> Framework:
             if m := RULE_RE.match(stripped):
                 rules[m.group(1)] = m.group(2).strip()
         elif section == "moving averages":
-            if m := MA_ROW_RE.match(stripped):
-                tf, fast_kind, fast_n, slow_kind, slow_n = m.groups()
-                moving_averages[tf] = (f"{fast_kind} {fast_n}", f"{slow_kind} {slow_n}")
+            if m := MA_LINE_RE.match(stripped):
+                timeframe, listed = m.groups()
+                tokens = [
+                    f"{period} {kind.upper()}"
+                    for period, kind in MA_TOKEN_RE.findall(listed)
+                ]
+                if tokens:
+                    moving_averages[timeframe] = tokens
         elif section == "indicators":
             if m := INDICATOR_RE.match(stripped):
                 indicators.append(stripped[2:].strip())

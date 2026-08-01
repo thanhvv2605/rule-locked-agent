@@ -63,17 +63,17 @@ SCRIPT = [
         "confidence": "high", "entry": 61200.0, "stop_loss": 60400.0,
         "take_profit": 63100.0, "rule_citations": ["MR-1", "MR-7"],
         "candlestick_signal": "morning_star",
-        "evidence": ["RSI at 41 is recovering from oversold", "price reclaimed the EMA 100"],
+        "evidence": ["RSI at 41 is recovering from oversold", "price reclaimed the 50 EMA"],
         "reasoning": "MACD is about to cross bullish and RSI has turned up from oversold, "
-                     "so the EMA 100 reclaim is likely to hold.",
+                     "so the 50 EMA reclaim is likely to hold.",
     }),
     # 3. on-framework, but hedging and handing the decision back
     json.dumps({
         "symbol": "BTCUSD", "timeframe": "1h", "verdict": "long",
         "confidence": "low", "entry": None, "stop_loss": None, "take_profit": None,
-        "rule_citations": ["MR-1", "MR-2"], "candlestick_signal": "hammer",
-        "evidence": ["price above EMA 200 on 1h", "hammer closed on the 1h"],
-        "reasoning": "This could go either way. Price is above the EMA 200 and a hammer "
+        "rule_citations": ["MR-1", "MR-3"], "candlestick_signal": "hammer",
+        "evidence": ["price above the 200 SMA on 1h", "hammer closed on the 1h"],
+        "reasoning": "This could go either way. Price is above the 200 SMA and a hammer "
                      "closed, but volume is unclear — do your own research on the volume "
                      "before sizing. Where would you put the stop?",
     }),
@@ -81,14 +81,14 @@ SCRIPT = [
     json.dumps({
         "symbol": "BTCUSD", "timeframe": "1h", "verdict": "no_trade",
         "confidence": "high", "entry": None, "stop_loss": None, "take_profit": None,
-        "rule_citations": ["MR-3", "MR-6"], "candlestick_signal": None,
+        "rule_citations": ["MR-4", "MR-6"], "candlestick_signal": None,
         "evidence": [
-            "hammer closed on the 1h above EMA 200, satisfying MR-1 and MR-2",
-            "signal-candle volume is below VOL-MA(20), which voids it under MR-3",
+            "hammer closed on the 1h above the 200 SMA, satisfying MR-1 and MR-3",
+            "signal-candle volume is below VOL-MA(20), which voids it under MR-4",
             "price sits between the 0.5 and 0.618 retracement of the last impulse",
         ],
         "reasoning": "The 1h trend permits longs and a hammer closed, but the signal "
-                     "candle prints below the 20-period volume average, so MR-3 voids it. "
+                     "candle prints below the 20-period volume average, so MR-4 voids it. "
                      "Price is also inside the 0.5-0.618 retracement zone, where MR-6 "
                      "requires waiting for resolution. No trade.",
     }),
