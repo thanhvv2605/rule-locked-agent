@@ -28,14 +28,15 @@ trading-journal.md ──► parsed into typed sections + hashed
 
 ## Run it
 
-No API key required — offline mode replays canned model responses so the
-reject loop is visible immediately:
+**No API key required.** Offline mode replays canned model responses, so the
+reject loop is visible immediately. One dependency:
 
 ```bash
+pip install pydantic
 python main.py --offline
 ```
 
-Against the real API:
+Against the real API — adds the Anthropic SDK and a key:
 
 ```bash
 pip install -r requirements.txt

@@ -11,6 +11,16 @@ import json
 import sys
 from pathlib import Path
 
+try:
+    import pydantic  # noqa: F401  (imported for the check, used via contract.py)
+except ModuleNotFoundError:
+    sys.exit(
+        "This demo needs pydantic:\n"
+        "    pip install pydantic\n\n"
+        "That is all --offline requires. The live API path additionally needs\n"
+        "the anthropic SDK:  pip install -r requirements.txt"
+    )
+
 import agent
 import journal
 from agent import Attempt
