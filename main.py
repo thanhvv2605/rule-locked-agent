@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
+import textwrap
 from pathlib import Path
 
 try:
@@ -28,6 +30,21 @@ from agent import Attempt
 HERE = Path(__file__).parent
 
 DIM, RED, GREEN, YELLOW, BOLD, OFF = "\033[2m", "\033[31m", "\033[32m", "\033[33m", "\033[1m", "\033[0m"
+
+# Wrap prose at word boundaries. Rule text and reasoning run long; letting the
+# terminal hard-break them splits words in half and reads as sloppy.
+WIDTH = min(shutil.get_terminal_size((100, 24)).columns, 100)
+
+
+def wrap(text: str, indent: str = "", first: str | None = None) -> str:
+    return textwrap.fill(
+        text,
+        width=WIDTH,
+        initial_indent=indent if first is None else first,
+        subsequent_indent=indent,
+        break_long_words=False,  # never split a word or an identifier in half
+        break_on_hyphens=False,
+    )
 
 
 # Four canned responses for offline mode. The first three each break a
@@ -85,7 +102,7 @@ def report(attempt: Attempt) -> None:
     print(f"  {RED}attempt {attempt.n}: REJECTED{OFF} — regenerating")
     for v in attempt.violations:
         print(f"    {YELLOW}✗{OFF} {v.constraint}")
-        print(f"      {DIM}{v.detail}{OFF}")
+        print(f"{DIM}{wrap(v.detail, indent='      ')}{OFF}")
     print()
 
 
@@ -99,8 +116,9 @@ def main(argv: list[str] | None = None) -> int:
     args = p.parse_args(argv)
 
     fw = journal.load(args.journal)
-    print(f"\n{BOLD}framework{OFF}  {fw.summary()}")
-    print(f"{DIM}the system prompt is rebuilt from this file at startup{OFF}\n")
+    print(f"\n{BOLD}framework{OFF}  {fw.path.name}  sha256:{fw.sha256[:12]}")
+    print(f"{DIM}           {fw.summary()}{OFF}")
+    print(f"{DIM}           the system prompt is rebuilt from this file at startup{OFF}\n")
 
     if args.offline:
         transport: agent.Transport = agent.ScriptedTransport(SCRIPT)
@@ -122,13 +140,14 @@ def main(argv: list[str] | None = None) -> int:
     print(f"{BOLD}verdict{OFF}      {result.verdict}  ({result.confidence} confidence)")
     print(f"{BOLD}rules{OFF}        {', '.join(result.rule_citations)}")
     for rid in result.rule_citations:
-        print(f"  {DIM}{rid} — {fw.rules[rid]}{OFF}")
+        print(f"{DIM}{wrap(f'{rid} — {fw.rules[rid]}', indent='         ', first='  ')}{OFF}")
     if result.entry is not None:
         print(f"{BOLD}levels{OFF}       entry {result.entry}  stop {result.stop_loss}  target {result.take_profit}")
     print(f"{BOLD}evidence{OFF}")
     for e in result.evidence:
-        print(f"  - {e}")
-    print(f"{BOLD}reasoning{OFF}    {result.reasoning}")
+        print(wrap(e, indent="    ", first="  - "))
+    print(f"{BOLD}reasoning{OFF}")
+    print(wrap(result.reasoning, indent="  "))
     print(f"\n{DIM}every rejection above was appended to {agent.AUDIT_LOG.name}{OFF}\n")
     return 0
 

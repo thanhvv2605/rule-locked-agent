@@ -34,11 +34,11 @@ class Framework:
         return {token for pair in self.moving_averages.values() for token in pair}
 
     def summary(self) -> str:
+        """What was parsed out of the file, for the startup banner."""
         return (
-            f"{self.path.name}  sha256:{self.sha256[:12]}  "
-            f"{len(self.rules)} master rules  "
-            f"{len(self.moving_averages)} MA timeframes  "
-            f"{len(self.indicators)} indicators  "
+            f"{len(self.rules)} master rules · "
+            f"{len(self.moving_averages)} MA timeframes · "
+            f"{len(self.indicators)} indicators · "
             f"{len(self.candlesticks)} candlestick patterns"
         )
 
