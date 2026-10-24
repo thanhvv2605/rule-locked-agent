@@ -1,5 +1,7 @@
 # rule-locked-agent
 
+[![CI](https://github.com/thanhvv2605/rule-locked-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/thanhvv2605/rule-locked-agent/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A ~400-line reference implementation of one thing: **stopping Claude from
 quietly falling back on generic technical analysis instead of your framework.**
 
